@@ -1,0 +1,97 @@
+version: '3.4'
+
+services:
+  db:
+    # We use a mariadb image which supports both amd64 & arm64 architecture
+    image: mariadb:10.6.4-focal
+    container_name: '${COMPOSE_PROJECT_NAME}-mariadb'
+    command: '--default-authentication-plugin=mysql_native_password'
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    expose:
+      - 3306
+    healthcheck:
+      test: "mysqladmin ping --silent"
+      # test: ["CMD", "/usr/local/bin/healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized"]
+      retries: 5
+      start_period: 3s
+      timeout: 10s
+      interval: 5s
+
+    # healthcheck:
+      # interval: 60s
+
+  woocommerce:
+    image: wordpress:latest
+    container_name: '${COMPOSE_PROJECT_NAME}-wordpress'
+    volumes:
+      - wp_data:/var/www/html
+    ports:
+      - 8000:80
+    restart: always
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=${MYSQL_USER}
+      - WORDPRESS_DB_PASSWORD=${MYSQL_PASSWORD}
+      - WORDPRESS_DB_NAME=${MYSQL_DATABASE}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail woocommerce || exit 1
+      interval: 60s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  
+
+  wordpress-cli:
+    image: wordpress:cli
+    entrypoint: /bin/bash /wordpress_cli.sh
+    # Utilise pour eviter les problemes de permissions dans le container
+    user: xfs
+    volumes_from:
+      - woocommerce
+    volumes:
+      - ./wordpress_cli.sh:/wordpress_cli.sh
+    env_file:
+      - .env
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=${MYSQL_USER}
+      - WORDPRESS_DB_PASSWORD=${MYSQL_PASSWORD}
+      - WORDPRESS_DB_NAME=${MYSQL_DATABASE}
+    depends_on:
+      woocommerce:
+        condition: service_healthy
+
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: '${COMPOSE_PROJECT_NAME}-phpmyadmin'
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      UPLOAD_LIMIT: 512M
+      MEMORY_LIMIT: 512M
+    ports:
+      - '8080:80'
+    volumes: 
+      - /sessions
+
+volumes:
+  db_data:
+  wp_data:

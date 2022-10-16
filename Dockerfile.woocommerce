@@ -1,0 +1,4 @@
+FROM wordpress:latest
+RUN wp plugin install WooCommerce --activate --allow-root
+RUN service apache2 restart
+RUN service apache2 reload

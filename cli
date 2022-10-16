@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Charge le fichier env dans les variables d'environnement accessibles au script
+export $(grep -v '^#' .env | xargs)
+new_name="${COMPOSE_PROJECT_NAME}_front"
+
+setup() {
+    echo "Starting stack setup..."
+    docker compose up -d woocommerce phpmyadmin
+    docker compose run --rm wordpress-cli
+
+    mv demo_front $new_name
+    sed -i -e "s/demo_front/$new_name/g" "${COMPOSE_PROJECT_NAME}_front"/package.json
+
+    # Edit le fichier .env du front avec les secrets
+    echo "WOOCOMMERCE_KEY=$CONSUMER_KEY
+WOOCOMMERCE_SECRET=$CONSUMER_SECRET
+" > $new_name/.env
+
+    yarn --cwd $new_name install
+    echo "Stack started setup..."
+}
+
+
+start() {
+    echo "Starting stack..."
+    docker compose up -d woocommerce phpmyadmin
+    yarn --cwd $new_name dev
+    echo "Stack started..."
+}
+
+down() {
+    docker compose down -v
+}
+
+$@
