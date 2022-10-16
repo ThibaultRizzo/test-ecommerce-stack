@@ -1,3 +1,6 @@
+Bonjour VINI
+
+
 ## Presentation de la stack
 Tres influence par ce tuto: https://medium.com/geekculture/headless-woocommerce-next-js-create-a-local-wordpress-with-woocommerce-4411b24a160e
 
